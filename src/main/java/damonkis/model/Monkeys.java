@@ -1,33 +1,36 @@
 package damonkis.model;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
 public class Monkeys {
+    public static final Object HISTORY_LOCK = new Object();
+
     private static final String LEGAL_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz ";
     private static final int NUMBER_OF_CHARACTERS = LEGAL_CHARACTERS.length();
 
     private final Thread typeThread;
     private final Random random;
-    private final String tryToFind;
+    private final String targetPhrase;
     private final int tryToFindLength;
-    private final List<Result> closestHistory;
+    private final List<Result> newHistory;
 
     private Result closestResult;
-    private long attempts;
     private Result lastGenerated;
+    private long attempts;
     private boolean isTyping;
 
-    public Monkeys(String tryToFind) {
+    public Monkeys(String targetPhrase) {
         this.isTyping = false;
         this.random = new Random();
 
-        this.tryToFind = tryToFind;
-        this.tryToFindLength = tryToFind.length();
+        this.targetPhrase = targetPhrase;
+        this.tryToFindLength = targetPhrase.length();
 
-        this.closestResult = new Result("", 0, 0);
-        this.closestHistory = new ArrayList<>();
+        this.closestResult = new Result("", 0, 0, false);
+        this.newHistory = new ArrayList<>();
         this.attempts = 0;
 
         this.typeThread = new Thread(() -> {
@@ -50,14 +53,34 @@ public class Monkeys {
     private void type() {
         attempts++;
         String generatedString = generateString();
-        lastGenerated = new Result(generatedString, StringSimilarity.calculate(generatedString, tryToFind), attempts);
-        if (lastGenerated.match() >= closestResult.match()) {
-            if (lastGenerated.match() != 0 && lastGenerated.match() > closestResult.match()) {
-                synchronized (this) {
-                    this.closestHistory.add(lastGenerated);
+        double generatedMatch = StringSimilarity.calculate(generatedString, targetPhrase);
+        if (generatedMatch >= closestResult.match()) {
+            lastGenerated = new Result(
+                    generatedString,
+                    generatedMatch,
+                    attempts,
+                    generatedMatch > closestResult.match()
+            );
+            if (lastGenerated.match() != 0) {
+                synchronized (HISTORY_LOCK) {
+                    newHistory.add(0, lastGenerated);
                 }
             }
             closestResult = lastGenerated;
+        }
+    }
+
+    public String getTargetPhrase() {
+        return targetPhrase;
+    }
+
+    public List<Result> getNewHistory() {
+        return Collections.unmodifiableList(newHistory);
+    }
+
+    public void clearNewHistory() {
+        synchronized (HISTORY_LOCK) {
+            newHistory.clear();
         }
     }
 
@@ -65,51 +88,20 @@ public class Monkeys {
         return closestResult;
     }
 
-    public String getProgress() {
-        String progressString;
-        if (closestResult.match() == 1) {
-            progressString = String.format("""
-                            The monkeys have finished typing "%s"
-                            It took %,d attempts
-                            
-                            Historical breakthroughs:
-                            %s
-                            """,
-                    tryToFind,
-                    closestResult.attempts(),
-                    String.join("\n", closestHistory
-                            .stream()
-                            .map(Result::getFormattedString)
-                            .toList()
-                    )
-
-            );
-        } else {
-            progressString = String.format("""
-                        The monkeys are typing. They are trying to type "%s"
-                        Attempts so far: %,d
-                        Closest match: %s
-                        Last string generated: %s
-                        
-                        Historical breakthroughs:
-                        %s
-                        """,
-                    tryToFind,
-                    attempts,
-                    closestResult.getFormattedString(),
-                    lastGenerated.text(),
-                    String.join("\n", getHistoryStrings()
-                    )
-            );
-        }
-        return progressString;
+    public Result getLastGenerated() {
+        return lastGenerated;
     }
 
-    private synchronized List<String> getHistoryStrings() {
-        return closestHistory
-                .stream()
-                .map(Result::getFormattedString)
-                .toList();
+    public long getAttempts() {
+        return attempts;
+    }
+
+    public boolean isTyping() {
+        return isTyping;
+    }
+
+    public boolean isFinished() {
+        return closestResult.match() == 1;
     }
 
     public synchronized void startTyping() {
@@ -130,9 +122,5 @@ public class Monkeys {
         typeThread.interrupt();
     }
 
-    public record Result(String text, double match, long attempts) {
-        public String getFormattedString() {
-            return String.format("%s (%.2f%% match, took %,d attempts)", text, match * 100, attempts);
-        }
-    }
+    public record Result(String text, double match, long attempts, boolean first) {}
 }
