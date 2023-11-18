@@ -49,7 +49,7 @@ public class Damonkis extends Application {
         primaryStage.setScene(new Scene(root, 500, 400));
         primaryStage.show();
 
-        Monkeys monkeys = new Monkeys("Sigve");
+        Monkeys monkeys = new Monkeys("Skibidi");
         monkeys.startTyping();
 
         Thread screenUpdateThread = new Thread(() -> {

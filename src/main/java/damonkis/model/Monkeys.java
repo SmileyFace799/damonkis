@@ -54,13 +54,13 @@ public class Monkeys {
         attempts++;
         String generatedString = generateString();
         double generatedMatch = StringSimilarity.calculate(generatedString, targetPhrase);
+        lastGenerated = new Result(
+                generatedString,
+                generatedMatch,
+                attempts,
+                generatedMatch > closestResult.match()
+        );
         if (generatedMatch >= closestResult.match()) {
-            lastGenerated = new Result(
-                    generatedString,
-                    generatedMatch,
-                    attempts,
-                    generatedMatch > closestResult.match()
-            );
             if (lastGenerated.match() != 0) {
                 synchronized (HISTORY_LOCK) {
                     newHistory.add(0, lastGenerated);
