@@ -8,7 +8,7 @@ import java.util.Random;
 public class Monkeys {
     public static final Object HISTORY_LOCK = new Object();
 
-    private static final String LEGAL_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz ";
+    public static final String LEGAL_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz ";
     private static final int NUMBER_OF_CHARACTERS = LEGAL_CHARACTERS.length();
 
     private final Thread typeThread;
